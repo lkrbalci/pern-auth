@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+
+  //alpine needs this
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Model for Auth System
+model User {
+  id        String      @id @default(uuid())
+  email     String   @unique
+  password  String   // Store the hashed password
+  name      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String      @id @default(uuid())
+  token     String      @unique
+  user      User        @relation(fields: [userId], references: [id], onDelete: NoAction)
+  userId    String
+
+  revoked   Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  expiresAt DateTime
+
+  replacedByToken String?
+  ipAddress String?
+  userAgent String?
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
