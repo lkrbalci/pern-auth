@@ -5,6 +5,18 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from "../utils/jwt";
+import { AppError } from "../utils/AppError";
+import { User } from "@prisma/client";
+
+// Dummy Hash to be used in timing attack prevention
+const dummyHash =
+  "$2a$10$wI6l0fJH5QpG8b1r6H8U6uJ8vF5eW8jK9jK9jK9jK9jK9jK9jK9jK";
+
+// Helper to get expiry date
+const getRefreshTokenExpiry = () => {
+  const days = process.env.REFRESH_TOKEN_EXPIRY_DAYS || "7"; // Add this to .env if you want
+  return new Date(Date.now() + parseInt(days) * 24 * 60 * 60 * 1000);
+};
 
 export const registerUser = async (
   email: string,
@@ -19,7 +31,7 @@ export const registerUser = async (
   });
 
   if (existingUser) {
-    throw new Error("User with this email already exists");
+    throw new AppError("User with this email already exists", 409);
   }
 
   // Hash Password
@@ -56,14 +68,13 @@ export const loginUser = async (
     where: { email },
   });
 
-  if (!user) {
-    throw new Error("Invalid credentials");
-  }
+  // User Checks with timing attacks protection
+  const targetHash = user ? user.password : dummyHash;
 
-  // Verify Password
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    throw new Error("Invalid credentials");
+  const isMatch = await bcrypt.compare(password, targetHash);
+
+  if (!isMatch || !user) {
+    throw new AppError("Invalid credentials", 401);
   }
 
   // Generate Session
@@ -88,32 +99,37 @@ export const logoutUser = async (refreshToken: string) => {
   });
 };
 
+// Session Helper
 const createSession = async (
-  user: any,
+  user: User,
   userAgent: string,
   ipAddress: string
 ) => {
-  // Create Refresh Token in DB
-  const refreshTokenEntry = await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      token: "", // Will be set after signing
-      userAgent,
-      ipAddress,
-    },
+  const result = await prisma.$transaction(async (tx) => {
+    // Create Refresh Token in DB
+    const refreshTokenEntry = await tx.refreshToken.create({
+      data: {
+        userId: user.id,
+        expiresAt: getRefreshTokenExpiry(),
+        token: "", // Will be set after signing
+        userAgent,
+        ipAddress,
+      },
+    });
+
+    const refreshToken = signRefreshToken(user, refreshTokenEntry.id);
+    const accessToken = signAccessToken(user);
+
+    // Update Refresh Token with signed token
+    await tx.refreshToken.update({
+      where: { id: refreshTokenEntry.id },
+      data: { token: refreshToken },
+    });
+
+    return { accessToken, refreshToken };
   });
 
-  const refreshToken = signRefreshToken(user, refreshTokenEntry.id);
-  const accessToken = signAccessToken(user);
-
-  // Update Refresh Token with signed token
-  await prisma.refreshToken.update({
-    where: { id: refreshTokenEntry.id },
-    data: { token: refreshToken },
-  });
-
-  return { accessToken, refreshToken };
+  return result;
 };
 
 export const refreshSession = async (
@@ -126,7 +142,7 @@ export const refreshSession = async (
   try {
     decoded = verifyRefreshToken(refreshToken);
   } catch (error) {
-    throw new Error("Invalid refresh token");
+    throw new AppError("Invalid refresh token", 401);
   }
 
   // Find Refresh Token in DB
@@ -137,7 +153,7 @@ export const refreshSession = async (
 
   if (!tokenInDb) {
     // Valid token but not found in DB (strange, why record deleted?)
-    throw new Error("Invalid Refresh Token");
+    throw new AppError("Invalid Refresh Token", 401);
   }
 
   if (tokenInDb.revoked) {
@@ -147,7 +163,7 @@ export const refreshSession = async (
       where: { userId: tokenInDb.userId, revoked: false },
       data: { revoked: true },
     });
-    throw new Error("Token Reuse Detected - All Sessions Revoked");
+    throw new AppError("Token Reuse Detected - All Sessions Revoked", 403);
   }
 
   // Happy Path, All Valid
@@ -162,7 +178,7 @@ export const refreshSession = async (
     const newEntry = await tx.refreshToken.create({
       data: {
         userId: tokenInDb.userId,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        expiresAt: getRefreshTokenExpiry(), // 7 days
         token: "", // Will be set after signing
         userAgent,
         ipAddress,

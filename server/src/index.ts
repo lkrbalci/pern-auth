@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { prisma } from "./db";
 import routerV1 from "./routes";
+import { errorHandler } from "./middlewares/error.midleware";
 
 dotenv.config();
 
@@ -21,6 +22,12 @@ app.get("/", (req: Request, res: Response) => {
 
 app.use("/api/v1", routerV1);
 
+app.all("*", (req, res, next) => {
+  res.status(404).json({ message: `Route ${req.originalUrl} not found` });
+});
+
+app.use(errorHandler);
+
 const startServer = async () => {
   try {
     await prisma.$connect();
@@ -35,4 +42,5 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
 startServer();

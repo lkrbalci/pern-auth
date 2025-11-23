@@ -1,19 +1,19 @@
 import { Request, Response } from "express";
 import { getUserById } from "../services/user.service";
 import { UserResponseSchema } from "../schemas/user.schema";
+import { catchAsync } from "../utils/catchAsync";
+import { AppError } from "../utils/AppError";
 
-export const getMe = async (req: Request, res: Response): Promise<any> => {
-  try {
+export const getMe = catchAsync(
+  async (req: Request, res: Response): Promise<any> => {
     const userId = req.user!.userId;
     const userEntity = await getUserById(userId);
 
     if (!userEntity) {
-      return res.status(404).json({ error: "User not found" });
+      throw new AppError("user not found", 404);
     }
     const cleanUser = UserResponseSchema.parse(userEntity);
 
     return res.json({ user: cleanUser });
-  } catch (error) {
-    return res.status(500).json({ message: "Internal Server Error" });
   }
-};
+);

@@ -6,19 +6,24 @@ import {
   registerUser,
 } from "../services/auth.service";
 import { getRequestMeta } from "../utils/request";
+import { catchAsync } from "../utils/catchAsync";
+import { UserResponseSchema } from "../schemas/user.schema";
+import { AppError } from "../utils/AppError";
 
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict" as const,
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+const getCookieOptions = () => {
+  const days = parseInt(process.env.REFRESH_TOKEN_EXPIRY_DAYS || "7");
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    maxAge: days * 24 * 60 * 60 * 1000, // Milliseconds
+  };
 };
 
-export const register = async (req: Request, res: Response): Promise<any> => {
-  try {
+export const register = catchAsync(
+  async (req: Request, res: Response): Promise<Response> => {
     const { email, password, name } = req.body;
     const { userAgent, ipAddress } = getRequestMeta(req);
-
     const { user, accessToken, refreshToken } = await registerUser(
       email,
       password,
@@ -27,29 +32,20 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       ipAddress
     );
 
+    const cleanUser = UserResponseSchema.parse(user);
+
     // Set HttpOnly Cookie
-    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+    res.cookie("refreshToken", refreshToken, getCookieOptions());
 
     return res.status(201).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
+      user: cleanUser,
       accessToken,
     });
-  } catch (error: any) {
-    // Implement proper error handling with midlleware
-    if (error.message == "User with this email already exists") {
-      return res.status(400).json({ error: error.message });
-    }
-    console.error("Registration Error:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
   }
-};
+);
 
-export const login = async (req: Request, res: Response): Promise<any> => {
-  try {
+export const login = catchAsync(
+  async (req: Request, res: Response): Promise<Response> => {
     const { email, password } = req.body;
     const { userAgent, ipAddress } = getRequestMeta(req);
 
@@ -60,30 +56,21 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       ipAddress
     );
 
+    const cleanUser = UserResponseSchema.parse(user);
+
     // Set HttpOnly Cookie
-    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+    res.cookie("refreshToken", refreshToken, getCookieOptions());
 
     return res.json({
       message: "Login successful",
       accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
+      user: cleanUser,
     });
-  } catch (error: any) {
-    // Implement proper error handling with midlleware
-    if (error.message == "Invalid credentials") {
-      return res.status(401).json({ error: error.message });
-    }
-    console.error("Login Error:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
   }
-};
+);
 
-export const logout = async (req: Request, res: Response): Promise<any> => {
-  try {
+export const logout = catchAsync(
+  async (req: Request, res: Response): Promise<Response> => {
     // Clear the refresh token cookie
     const { refreshToken } = req.cookies;
 
@@ -91,52 +78,42 @@ export const logout = async (req: Request, res: Response): Promise<any> => {
       await logoutUser(refreshToken);
     }
 
-    res.clearCookie("refreshToken", COOKIE_OPTIONS);
+    res.clearCookie("refreshToken", getCookieOptions());
 
     return res.json({ message: "Logout successful" });
-  } catch (error) {
-    console.error("Logout Error:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
   }
-};
+);
 
-export const refresh = async (req: Request, res: Response): Promise<any> => {
-  try {
+export const refresh = catchAsync(
+  async (req: Request, res: Response): Promise<Response> => {
     // Get Cookie
     const { refreshToken } = req.cookies;
-    if (!refreshToken) {
-      return res.status(401).json({ message: "Refresh Token not found" });
-    }
 
     const { userAgent, ipAddress } = getRequestMeta(req);
 
-    // Call Service to Refresh Tokens
-    const {
-      accessToken,
-      refreshToken: newRefreshToken,
-      user,
-    } = await refreshSession(refreshToken, ipAddress, userAgent);
+    try {
+      // Call Service to Refresh Tokens
+      const {
+        accessToken,
+        refreshToken: newRefreshToken,
+        user,
+      } = await refreshSession(refreshToken, ipAddress, userAgent);
 
-    // Set New HttpOnly Cookie
-    res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS);
+      const cleanUser = UserResponseSchema.parse(user);
 
-    return res.json({
-      message: "Session refreshed",
-      accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
-    });
-  } catch (error: any) {
-    // If something goes wrong, force logout
-    res.clearCookie("refreshToken", COOKIE_OPTIONS);
+      // Set New HttpOnly Cookie
+      res.cookie("refreshToken", newRefreshToken, getCookieOptions());
 
-    if (error.message.includes("Reuse") || error.message.includes("Invalid")) {
-      return res.status(403).json({ message: "Session Invalid or Expired" });
+      return res.json({
+        message: "Session refreshed",
+        accessToken,
+        user: cleanUser,
+      });
+    } catch (error) {
+      // If something goes wrong, force logout
+      res.clearCookie("refreshToken", getCookieOptions());
+
+      throw error;
     }
-    console.error("Refresh Session Error:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
   }
-};
+);

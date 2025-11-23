@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  #Database Service
+  postgres:
+    image: postgres:18.1-alpine
+    container_name: pern_auth_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-thispasswordneedstochange}
+      POSTGRES_DB: ${DB_NAME:-pern_auth_postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-pern_auth_postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: production
+    container_name: pern_auth_server_prod
+    restart: always
+    ports:
+      - "${SERVER_PORT:-5000}:5000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${DB_USER:-user}:${DB_PASSWORD:-thispasswordneedstochange}@postgres:5432/${DB_NAME:-pern_auth_postgres}
+      SERVER_PORT: ${SERVER_PORT:-5000}
+      JWT_SECRET: ${JWT_SECRET:-thisisasupersecretsecretkey}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    entrypoint: ["/app/docker-entrypoint.sh"]
+
+volumes:
+  postgres_data_prod:
