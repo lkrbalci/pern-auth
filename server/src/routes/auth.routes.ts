@@ -11,11 +11,12 @@ import {
   RefreshSchema,
   RegisterSchema,
 } from "../schemas/auth.schema";
+import { authRateLimiter } from "../middlewares/rateLimit.middleware";
 
 const router = Router();
 
-router.post("/register", validate(RegisterSchema), register);
-router.post("/login", validate(LoginSchema), login);
+router.post("/register", authRateLimiter, validate(RegisterSchema), register);
+router.post("/login", authRateLimiter, validate(LoginSchema), login);
 router.post("/logout", logout);
 router.post("/refresh", validate(RefreshSchema), refresh);
 

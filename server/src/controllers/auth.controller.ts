@@ -22,7 +22,7 @@ const getCookieOptions = () => {
 
 export const register = catchAsync(
   async (req: Request, res: Response): Promise<Response> => {
-    const { email, password, name } = req.body;
+    const { email, password, name } = req.validated.body;
     const { userAgent, ipAddress } = getRequestMeta(req);
     const { user, accessToken, refreshToken } = await registerUser(
       email,

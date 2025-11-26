@@ -11,9 +11,11 @@ export const validate = (schema: ZodType<any, any>) => {
         cookies: req.cookies,
       });
 
-      req.body = parsed.body;
-      req.query = parsed.query;
-      req.params = parsed.params;
+      req.validated = {
+        body: parsed.body,
+        query: parsed.query,
+        params: parsed.params,
+      };
       next();
     } catch (error) {
       next(error);
