@@ -15,6 +15,7 @@ export const validate = (schema: ZodType<any, any>) => {
         body: parsed.body,
         query: parsed.query,
         params: parsed.params,
+        cookies: parsed.cookies,
       };
       next();
     } catch (error) {

@@ -22,7 +22,7 @@ const getCookieOptions = () => {
 
 export const register = catchAsync(
   async (req: Request, res: Response): Promise<Response> => {
-    const { email, password, name } = req.validated.body;
+    const { email, password, name } = req.validated!.body;
     const { userAgent, ipAddress } = getRequestMeta(req);
     const { user, accessToken, refreshToken } = await registerUser(
       email,
@@ -46,7 +46,7 @@ export const register = catchAsync(
 
 export const login = catchAsync(
   async (req: Request, res: Response): Promise<Response> => {
-    const { email, password } = req.body;
+    const { email, password } = req.validated!.body;
     const { userAgent, ipAddress } = getRequestMeta(req);
 
     const { user, accessToken, refreshToken } = await loginUser(
@@ -72,7 +72,7 @@ export const login = catchAsync(
 export const logout = catchAsync(
   async (req: Request, res: Response): Promise<Response> => {
     // Clear the refresh token cookie
-    const { refreshToken } = req.cookies;
+    const { refreshToken } = req.validated!.cookies;
 
     if (refreshToken) {
       await logoutUser(refreshToken);
@@ -87,7 +87,7 @@ export const logout = catchAsync(
 export const refresh = catchAsync(
   async (req: Request, res: Response): Promise<Response> => {
     // Get Cookie
-    const { refreshToken } = req.cookies;
+    const { refreshToken } = req.validated!.cookies;
 
     const { userAgent, ipAddress } = getRequestMeta(req);
 

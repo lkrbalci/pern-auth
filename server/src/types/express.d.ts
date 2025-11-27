@@ -7,9 +7,10 @@ declare global {
         userId: string;
       };
       validated?: {
-        body?: unknown;
-        query?: unknown;
-        params?: unknown;
+        body?: any;
+        query?: any;
+        params?: any;
+        cookies?: any;
       };
     }
   }
