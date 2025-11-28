@@ -27,7 +27,7 @@ export const errorHandler = (
       .join(", ");
   } else if (err instanceof SyntaxError) {
     statusCode = 400;
-    message = "invalid JSON syntax";
+    message = "Bad Request";
   }
 
   // Crashes

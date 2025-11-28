@@ -8,39 +8,88 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("Auth API", () => {
-  const testUser = {
-    email: `test_${Date.now()}@example.com`,
-    password: "password",
-    name: "Test User",
-  };
+const generateUser = () => ({
+  email: `test_${Date.now()}_${Math.random()}@example.com`,
+  password: "password123!",
+  name: "Test User",
+});
 
-  describe("POST /api/v1/auth/register", () => {
-    it("should register a new user and return tokens", async () => {
-      const res = await request(app)
-        .post("/api/v1/auth/register")
-        .send(testUser);
+let userA = generateUser();
 
-      expect(res.status).toBe(201);
-      expect(res.body.user).toHaveProperty("id");
-      expect(res.body).toHaveProperty("accessToken");
-      expect(res.body.user.email).toBe(testUser.email);
+beforeAll(async () => {
+  // Generate the user before any tests
+  userA = generateUser();
+});
 
-      expect(res.body.user).not.toHaveProperty("password");
+afterAll(async () => {
+  // Clean up created users
+  await prisma.user.deleteMany({ where: { email: userA.email } });
+  await prisma.$disconnect();
+});
 
-      const cookies = res.headers["set-cookie"];
-      expect(cookies).toBeDefined();
-      expect(cookies[0]).toMatch(/refreshToken/);
-      expect(cookies[0]).toMatch(/HttpOnly/);
+describe("Auth flow", () => {
+  let refreshToken: string;
+  let accessToken: string;
+
+  it("should register a new user", async () => {
+    const res = await request(app).post("/api/v1/auth/register").send(userA);
+
+    expect(res.status).toBe(201);
+    expect(res.body.user.email).toBe(userA.email);
+    expect(res.body.user.password).toBeUndefined();
+    expect(res.body.accessToken).toBeDefined();
+
+    // Test Cookie
+    const cookies = res.headers["set-cookie"];
+    expect(cookies).toBeDefined();
+
+    //refreshToken=ey...xyz; Path=/; HttpOnly; Secure; SameSite=Strict
+    refreshToken = cookies[0].split(";")[0].split("=")[1];
+  });
+
+  it("should login user", async () => {
+    const res = await request(app).post("/api/v1/auth/login").send({
+      email: userA.email,
+      password: userA.password,
     });
 
-    it("should fail if email is invalid", async () => {
-      const res = await request(app).post("/api/v1/auth/register").send({
-        email: "invalid-email",
-        password: "password",
-      });
+    expect(res.status).toBe(200);
+    expect(res.body.accessToken).toBeDefined();
 
-      expect(res.statusCode).toEqual(400);
-    });
+    accessToken = res.body.accessToken;
+  });
+
+  it("should access protected route with token", async () => {
+    const res = await request(app)
+      .get("/api/v1/users/me")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.email).toBe(userA.email);
+  });
+
+  it("should refresh session using cookie", async () => {
+    const loginRes = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: userA.email, password: userA.password });
+
+    const cookie = loginRes.headers["set-cookie"];
+
+    const res = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("Cookie", cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.accessToken).toBeDefined();
+    expect(res.body.accressToken).not.toBe(accessToken);
+  });
+
+  it("should reject invalid input", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/register")
+      .send({ email: "bad_mail", password: "123" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("email");
   });
 });

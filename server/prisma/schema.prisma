@@ -34,7 +34,7 @@ model User {
 model RefreshToken {
   id        String      @id @default(uuid())
   token     String      @unique
-  user      User        @relation(fields: [userId], references: [id], onDelete: NoAction)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
 
   revoked   Boolean     @default(false)
