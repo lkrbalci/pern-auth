@@ -8,7 +8,6 @@ import {
 import { AppError } from "../utils/AppError";
 import { User } from "@prisma/client";
 import { generateRandomToken, hashToken } from "../utils/crypto";
-import { email } from "zod";
 import { sendPasswordResetEmail, sendVerificationEmail } from "./email.service";
 
 // Dummy Hash to be used in timing attack prevention
@@ -107,11 +106,14 @@ export const loginUser = async (
 
   // User Checks with timing attacks protection
   const targetHash = user ? user.password : dummyHash;
-
   const isMatch = await bcrypt.compare(password, targetHash);
 
-  if (!isMatch || !user) {
+  if (!isMatch || !user || user.isDeleted) {
     throw new AppError("Invalid credentials", 401);
+  }
+
+  if (!user.isMailVerified) {
+    throw new AppError("Please verify your email address", 403);
   }
 
   // Generate Session
@@ -248,8 +250,8 @@ export const refreshSession = async (
   };
 };
 
-export const verifyEmail = async (token: string) => {
-  // HAsh the token to copmpare with DB
+export const verifyUserEmail = async (token: string) => {
+  // Hash the token to copmpare with DB
   const hashedToken = hashToken(token);
 
   // Find user with this token
@@ -278,7 +280,9 @@ export const verifyEmail = async (token: string) => {
 };
 
 export const forgotPassword = async (email: string) => {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findFirst({
+    where: { email, isDeleted: false },
+  });
 
   // Just return, do not give hints
   if (!user) return;

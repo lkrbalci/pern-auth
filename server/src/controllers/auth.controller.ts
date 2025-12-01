@@ -4,6 +4,7 @@ import {
   logoutUser,
   refreshSession,
   registerUser,
+  verifyUserEmail,
 } from "../services/auth.service";
 import { getRequestMeta } from "../utils/request";
 import { catchAsync } from "../utils/catchAsync";
@@ -95,7 +96,7 @@ export const login = catchAsync(
 export const logout = catchAsync(
   async (req: Request, res: Response): Promise<Response> => {
     // Clear the refresh token cookie
-    const { refreshToken } = req.validated!.cookies;
+    const refreshToken = req.cookies?.refreshToken;
 
     if (refreshToken) {
       await logoutUser(refreshToken);
@@ -138,5 +139,15 @@ export const refresh = catchAsync(
 
       throw error;
     }
+  }
+);
+
+export const verifyEmail = catchAsync(
+  async (req: Request, res: Response): Promise<Response> => {
+    const { token } = req.validated!.query;
+
+    await verifyUserEmail(token);
+
+    return res.status(200).json({ message: "Email verified successfully" });
   }
 );

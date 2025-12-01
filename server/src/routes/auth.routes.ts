@@ -5,12 +5,14 @@ import {
   refresh,
   register,
   registerWithVerification,
+  verifyEmail,
 } from "../controllers/auth.controller";
 import { validate } from "../middlewares/validate.middleware";
 import {
   LoginSchema,
   RefreshSchema,
   RegisterSchema,
+  VerifyEmailSchema,
 } from "../schemas/auth.schema";
 import { authRateLimiter } from "../middlewares/rateLimit.middleware";
 
@@ -29,7 +31,7 @@ const router = Router();
  *   post:
  *     tags: [Auth]
  *     summary: Register a new user
- *     description: Register a new user with email and password
+ *     description: Register a new user with email and password !!Comment out if email verification path is used!!
  *     requestBody:
  *       required: true
  *       content:
@@ -59,10 +61,10 @@ router.post("/register", authRateLimiter, validate(RegisterSchema), register);
 
 /**
  * @openapi
- * /auth/register:
+ * /auth/register-with-verification:
  *   post:
  *     tags: [Auth]
- *     summary: Register a new user
+ *     summary: Register a new user with email verification
  *     description: Register a new user with email and password also expect for email verification
  *     requestBody:
  *       required: true
@@ -90,7 +92,7 @@ router.post("/register", authRateLimiter, validate(RegisterSchema), register);
  */
 
 router.post(
-  "/register/verify",
+  "/register-with-verification",
   validate(RegisterSchema),
   registerWithVerification
 );
@@ -160,5 +162,27 @@ router.post("/logout", logout);
  *         description: Token Reuse Detected - All Sessions Revoked
  */
 router.post("/refresh", validate(RefreshSchema), refresh);
+
+/**
+ * @openapi
+ * /auth/verify-email:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Verify Email
+ *     description: Validates the token sent via email and activates the account.
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         schema:
+ *           type: string
+ *         required: true
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *       400:
+ *         description: Invalid or expired token
+ */
+
+router.get("/verify-email", validate(VerifyEmailSchema), verifyEmail);
 
 export default router;
