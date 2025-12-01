@@ -23,6 +23,16 @@ model User {
   password  String   // Store the hashed password
   name      String?
 
+  isDeleted Boolean @default(false)
+
+  isMailVerified Boolean @default(false)
+
+  verificationToken String? @unique
+  verificationTokenExpiresAt DateTime?
+
+  passwordResetToken String? @unique
+  passwordResetTokenExpiresAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

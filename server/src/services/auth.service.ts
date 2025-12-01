@@ -7,6 +7,9 @@ import {
 } from "../utils/jwt";
 import { AppError } from "../utils/AppError";
 import { User } from "@prisma/client";
+import { generateRandomToken, hashToken } from "../utils/crypto";
+import { email } from "zod";
+import { sendPasswordResetEmail, sendVerificationEmail } from "./email.service";
 
 // Dummy Hash to be used in timing attack prevention
 const dummyHash =
@@ -23,7 +26,8 @@ export const registerUser = async (
   password: string,
   name: string | undefined,
   userAgent: string,
-  ipAddress: string
+  ipAddress: string,
+  shouldSendVerificationEmail: boolean = true
 ) => {
   // Check Existance
   const existingUser = await prisma.user.findUnique({
@@ -38,14 +42,47 @@ export const registerUser = async (
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
+  // Verification Token vars
+  let verificationToken: string | null = null;
+  let verificationTokenExpiresAt: Date | null = null;
+  let rawToken: string | null = null;
+
+  // Verification mail logic is optional. Route and controller decide
+  if (shouldSendVerificationEmail) {
+    // Generate Verification Token
+    rawToken = generateRandomToken();
+    verificationToken = hashToken(rawToken);
+    verificationTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  }
+
   // Create User
   const user = await prisma.user.create({
     data: {
       email,
       password: hashedPassword,
       name,
+      isMailVerified: !shouldSendVerificationEmail, // If no email verification needed, set to true
+      verificationToken,
+      verificationTokenExpiresAt,
     },
   });
+
+  // Send Verification Email if needed
+  if (shouldSendVerificationEmail && rawToken) {
+    sendVerificationEmail(user.email, rawToken).catch((err) => {
+      console.error("Error sending verification email:", err);
+    });
+  }
+
+  if (shouldSendVerificationEmail) {
+    // Send Verification Email
+    return {
+      user,
+      accessToken: null,
+      refreshToken: null,
+      requireVerification: true,
+    };
+  }
 
   // Generate Session
   const { accessToken, refreshToken } = await createSession(
@@ -54,7 +91,7 @@ export const registerUser = async (
     ipAddress
   );
 
-  return { user, accessToken, refreshToken };
+  return { user, accessToken, refreshToken, requireVerification: false };
 };
 
 export const loginUser = async (
@@ -209,4 +246,92 @@ export const refreshSession = async (
     refreshToken: newRefreshToken,
     user: tokenInDb.user,
   };
+};
+
+export const verifyEmail = async (token: string) => {
+  // HAsh the token to copmpare with DB
+  const hashedToken = hashToken(token);
+
+  // Find user with this token
+  const user = await prisma.user.findFirst({
+    where: {
+      verificationToken: hashedToken,
+      verificationTokenExpiresAt: {
+        gt: new Date(),
+      },
+    },
+  });
+
+  if (!user) throw new AppError("Token invalid or expired", 400);
+
+  // Update the User
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      isMailVerified: true,
+      verificationToken: null, // Cleared after use
+      verificationTokenExpiresAt: null,
+    },
+  });
+
+  return user;
+};
+
+export const forgotPassword = async (email: string) => {
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  // Just return, do not give hints
+  if (!user) return;
+
+  // Generate Token
+  const rawToken = generateRandomToken();
+  const hashedToken = hashToken(rawToken);
+
+  // Save Token data to DB
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordResetToken: hashedToken,
+      passwordResetTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    },
+  });
+
+  await sendPasswordResetEmail(user.email, rawToken);
+};
+
+export const resetPassword = async (token: string, newPassword: string) => {
+  // Hash the token to compare with DB
+  const hashedToken = hashToken(token);
+
+  // Find user with this token
+  const user = await prisma.user.findFirst({
+    where: {
+      passwordResetToken: hashedToken,
+      passwordResetTokenExpiresAt: {
+        gt: new Date(),
+      },
+    },
+  });
+
+  if (!user) throw new AppError("Token invalid or expired", 400);
+
+  // Hash New Password
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+  // Update the User
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      password: hashedPassword,
+      passwordResetToken: null, // Cleared after use
+      passwordResetTokenExpiresAt: null,
+    },
+  });
+
+  // Revoke all existing sessions
+  await prisma.refreshToken.updateMany({
+    where: { userId: user.id },
+    data: { revoked: true },
+  });
 };

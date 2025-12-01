@@ -1,3 +1,4 @@
+import { Request } from "express";
 import morgan, { StreamOptions } from "morgan";
 import logger from "../utils/logger";
 
@@ -12,9 +13,11 @@ const skip = () => {
   return env !== "development";
 };
 
+morgan.token("id", (req: any) => req.id || "-");
+
 const morganMiddleware = morgan(
-  // GET /api/v1/users 200 45ms
-  ":method :url :status :res[content-length] - :response-time ms",
+  // [gadf-gaw4ew3...] GET /api/v1/users 200 45ms
+  "[:id] :method :url :status :res[content-length] - :response-time ms",
   { stream, skip }
 );
 

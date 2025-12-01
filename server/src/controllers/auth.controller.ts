@@ -44,6 +44,29 @@ export const register = catchAsync(
   }
 );
 
+export const registerWithVerification = catchAsync(
+  async (req: Request, res: Response): Promise<Response> => {
+    const { email, password, name } = req.validated!.body;
+    const { userAgent, ipAddress } = getRequestMeta(req);
+
+    const result = await registerUser(
+      email,
+      password,
+      name,
+      userAgent,
+      ipAddress,
+      true
+    );
+
+    return res.status(201).json({
+      message:
+        "Registration successful. Please verify your email before logging in.",
+      user: UserResponseSchema.parse(result.user),
+      requireVerification: true,
+    });
+  }
+);
+
 export const login = catchAsync(
   async (req: Request, res: Response): Promise<Response> => {
     const { email, password } = req.validated!.body;

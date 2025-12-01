@@ -7,6 +7,7 @@ import morganMiddleware from "./middlewares/morgan.middleware";
 import { globalRateLimiter } from "./middlewares/rateLimit.middleware";
 import cookieParser from "cookie-parser";
 import { swaggerDocs } from "./utils/swagger";
+import helmet from "helmet";
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ const app: Express = express();
 // Trust the Docker/Nginx Proxy
 app.set("trust proxy", 1);
 
+app.use(helmet());
 app.use(morganMiddleware);
 app.use("/api/", globalRateLimiter);
 app.use(express.json());

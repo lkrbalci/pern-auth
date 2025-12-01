@@ -4,6 +4,7 @@ import {
   logout,
   refresh,
   register,
+  registerWithVerification,
 } from "../controllers/auth.controller";
 import { validate } from "../middlewares/validate.middleware";
 import {
@@ -55,6 +56,44 @@ const router = Router();
  */
 
 router.post("/register", authRateLimiter, validate(RegisterSchema), register);
+
+/**
+ * @openapi
+ * /auth/register:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Register a new user
+ *     description: Register a new user with email and password also expect for email verification
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *            type: object
+ *            required:
+ *             - email
+ *             - password
+ *            properties:
+ *              email:
+ *                type: string
+ *                default: user@example.com
+ *              password:
+ *                type: string
+ *                default: password123!
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Bad Request
+ *       409:
+ *         description: User with this email already exists
+ */
+
+router.post(
+  "/register/verify",
+  validate(RegisterSchema),
+  registerWithVerification
+);
 
 /**
  * @openapi
