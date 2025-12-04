@@ -1,5 +1,7 @@
 import nodemailer from "nodemailer";
 import logger from "../utils/logger";
+import CircuitBreaker from "opossum";
+import retry from "async-retry";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -11,14 +13,55 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const sendWithRetry = async (mailOptions: any) => {
+  return retry(
+    async (bail) => {
+      logger.info(`Attempting to send email to ${mailOptions.to}`);
+      return await transporter.sendMail(mailOptions);
+    },
+    {
+      // Try 3 times
+      retries: 3,
+      // Wait for 1s first retry
+      minTimeout: 1000,
+      // Retry timeout exp. 1s, 2s, 4s
+      factor: 2,
+      // Max 5s
+      maxTimeout: 5000,
+      onRetry: (err: any) =>
+        logger.warn(`Email failed, retrying... (${err.message})`),
+    }
+  );
+};
+
+const breakerOptions = {
+  // if takes more than 10 sec, fail.
+  timeout: 10000,
+  // if %50 of reqs fail, open circuit.
+  errorThresholdPercentage: 50,
+  // wait 30s to retry.
+  resetTimeout: 30000,
+};
+
+const breaker = new CircuitBreaker(sendWithRetry, breakerOptions);
+
+breaker.fallback(() => {
+  logger.error("Email service is currently unavailable.");
+});
+
+breaker.on("open", () => logger.warn("Email circuit breaker opened"));
+breaker.on("close", () => logger.info("Email circuit breaker closed"));
+
 export const sendEmail = async (to: string, subject: string, html: string) => {
+  const mailOptions = {
+    from: process.env.SMTP_FROM,
+    to,
+    subject,
+    html,
+  };
+
   try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      subject,
-      html,
-    });
+    await breaker.fire(mailOptions);
     logger.info(`Email sent to ${to} with subject: ${subject}`);
   } catch (error) {
     logger.error(`Error sending email to ${to}: ${error}`);

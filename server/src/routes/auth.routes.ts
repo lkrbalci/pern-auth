@@ -60,7 +60,6 @@ const router = Router();
  *       409:
  *         description: User with this email already exists
  */
-
 router.post("/register", authRateLimiter, validate(RegisterSchema), register);
 
 /**
@@ -186,11 +185,66 @@ router.post("/refresh", validate(RefreshSchema), refresh);
  *       400:
  *         description: Invalid or expired token
  */
-
 router.get("/verify-email", validate(VerifyEmailSchema), verifyEmail);
 
+/**
+ * @openapi
+ * /auth/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Forgot Password
+ *     description: Sends email containing password reset link and token to provided user email address
+ *     requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *          schema:
+ *            type: object
+ *            required:
+ *              - email
+ *            properties:
+ *              email:
+ *                type: string
+ *                default: user@example.com
+ *     responses:
+ *       200:
+ *         description: Reset link has been sent.
+ *       400:
+ *         description: Bad Request
+ *       401:
+ *         description: Invalid credentials
+ */
 router.post("/forgot-password", validate(ForgotPasswordSchema), forgotPassword);
 
+/**
+ * @openapi
+ * /auth/register:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Reset password
+ *     description: Reset user password after token verification token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *            type: object
+ *            required:
+ *             - token
+ *             - password
+ *            properties:
+ *              token:
+ *                type: string
+ *                required: true
+ *              password:
+ *                type: string
+ *                default: password123!
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Token invalid or expired
+ */
 router.post("/reset-password", validate(ResetPasswordSchema), resetPassword);
 
 export default router;

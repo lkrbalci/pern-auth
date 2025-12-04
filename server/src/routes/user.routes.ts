@@ -41,7 +41,6 @@ const router = Router();
  *       401:
  *         description: Unauthorized - Invalid or missing token
  */
-
 router.get("/me", authenticate, getMe);
 
 /**
@@ -58,7 +57,6 @@ router.get("/me", authenticate, getMe);
  *       403:
  *         description: Forbidden (Not an admin)
  */
-
 router.get("/", authenticate, authorize([Role.ADMIN]), getAllUsers);
 
 export default router;
