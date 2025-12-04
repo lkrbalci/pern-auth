@@ -1,4 +1,5 @@
 import { Request } from "express";
+import { Role } from "@prisma/client";
 
 declare global {
   namespace Express {
@@ -6,6 +7,7 @@ declare global {
       // request.user for auth
       user?: {
         userId: string;
+        role: Role;
       };
       // request.validated for validation
       validated?: {

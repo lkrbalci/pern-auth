@@ -1,5 +1,5 @@
 import jwt, { SignOptions } from "jsonwebtoken";
-import { User } from "@prisma/client";
+import { Role, User } from "@prisma/client";
 
 // Retrieve secrets from env (fail fast if missing)
 const ACCESS_SECRET = process.env.ACCESS_TOKEN_SECRET;
@@ -14,11 +14,13 @@ if (!ACCESS_SECRET || !REFRESH_SECRET) {
 
 // Generate Access Token (Short lived, 15m)
 export const signAccessToken = (user: User) => {
+  const payload = { userId: user.id, role: user.role };
+
   const options: SignOptions = {
     expiresIn: (ACCESS_TOKEN_EXPIRY || "15m") as SignOptions["expiresIn"],
   };
 
-  return jwt.sign({ userId: user.id }, ACCESS_SECRET, options);
+  return jwt.sign(payload, ACCESS_SECRET, options);
 };
 
 // Generate Refresh Token (Long lived, 7d)
@@ -31,7 +33,7 @@ export const signRefreshToken = (user: User, tokenId: string) => {
 
 // Verify Access Token
 export const verifyAccessToken = (token: string) => {
-  return jwt.verify(token, ACCESS_SECRET) as { userId: string };
+  return jwt.verify(token, ACCESS_SECRET) as { userId: string; role: Role };
 };
 
 // Verify Refresh Token

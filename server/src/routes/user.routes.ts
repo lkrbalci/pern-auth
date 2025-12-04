@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { getMe } from "../controllers/user.controller";
-import { authenticate } from "../middlewares/auth.middleware";
+import { getAllUsers, getMe } from "../controllers/user.controller";
+import { authenticate, authorize } from "../middlewares/auth.middleware";
+import { Role } from "@prisma/client";
 
 const router = Router();
 
@@ -40,6 +41,24 @@ const router = Router();
  *       401:
  *         description: Unauthorized - Invalid or missing token
  */
+
 router.get("/me", authenticate, getMe);
+
+/**
+ * @openapi
+ * /users:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get all users (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of users
+ *       403:
+ *         description: Forbidden (Not an admin)
+ */
+
+router.get("/", authenticate, authorize([Role.ADMIN]), getAllUsers);
 
 export default router;

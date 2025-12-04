@@ -9,6 +9,7 @@ import { AppError } from "../utils/AppError";
 import { User } from "@prisma/client";
 import { generateRandomToken, hashToken } from "../utils/crypto";
 import { sendPasswordResetEmail, sendVerificationEmail } from "./email.service";
+import logger from "../utils/logger";
 
 // Dummy Hash to be used in timing attack prevention
 const dummyHash =
@@ -68,8 +69,8 @@ export const registerUser = async (
 
   // Send Verification Email if needed
   if (shouldSendVerificationEmail && rawToken) {
-    sendVerificationEmail(user.email, rawToken).catch((err) => {
-      console.error("Error sending verification email:", err);
+    await sendVerificationEmail(user.email, rawToken).catch((err) => {
+      logger.error("Error sending verification email", err);
     });
   }
 
@@ -279,7 +280,7 @@ export const verifyUserEmail = async (token: string) => {
   return user;
 };
 
-export const forgotPassword = async (email: string) => {
+export const forgotUserPassword = async (email: string) => {
   const user = await prisma.user.findFirst({
     where: { email, isDeleted: false },
   });
@@ -303,7 +304,7 @@ export const forgotPassword = async (email: string) => {
   await sendPasswordResetEmail(user.email, rawToken);
 };
 
-export const resetPassword = async (token: string, newPassword: string) => {
+export const resetUserPassword = async (token: string, newPassword: string) => {
   // Hash the token to compare with DB
   const hashedToken = hashToken(token);
 

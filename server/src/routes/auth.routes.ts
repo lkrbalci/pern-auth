@@ -1,17 +1,21 @@
 import { Router } from "express";
 import {
+  forgotPassword,
   login,
   logout,
   refresh,
   register,
   registerWithVerification,
+  resetPassword,
   verifyEmail,
 } from "../controllers/auth.controller";
 import { validate } from "../middlewares/validate.middleware";
 import {
+  ForgotPasswordSchema,
   LoginSchema,
   RefreshSchema,
   RegisterSchema,
+  ResetPasswordSchema,
   VerifyEmailSchema,
 } from "../schemas/auth.schema";
 import { authRateLimiter } from "../middlewares/rateLimit.middleware";
@@ -184,5 +188,9 @@ router.post("/refresh", validate(RefreshSchema), refresh);
  */
 
 router.get("/verify-email", validate(VerifyEmailSchema), verifyEmail);
+
+router.post("/forgot-password", validate(ForgotPasswordSchema), forgotPassword);
+
+router.post("/reset-password", validate(ResetPasswordSchema), resetPassword);
 
 export default router;

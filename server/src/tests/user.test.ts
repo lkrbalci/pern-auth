@@ -3,16 +3,18 @@ import request from "supertest";
 import app from "../app";
 import { prisma } from "../db";
 import { signAccessToken } from "../utils/jwt";
+import { Role } from "@prisma/client";
 
 let createdUserEmail: string;
 
-const createAuthanticatedUser = async () => {
+const createAuthanticatedUser = async (role: Role) => {
   const email = `test_user_${Date.now()}@example.com`;
   const user = await prisma.user.create({
     data: {
-      email: `test_user_${Date.now()}@example.com`,
+      email: email,
       password: "hashedpassword123",
       name: "Test User",
+      role: role,
     },
   });
 
@@ -29,32 +31,53 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("User Endpoints (Protected)", () => {
-  describe("GET /api/v1/users/me", () => {
-    it("should return the authenticated user's profile", async () => {
-      const { user, token } = await createAuthanticatedUser();
+describe("Authantication", () => {
+  it("should return the authenticated user's profile", async () => {
+    const { user, token } = await createAuthanticatedUser(Role.USER);
+
+    const res = await request(app)
+      .get("/api/v1/users/me")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.id).toBe(user.id);
+    expect(res.body.user.email).toBe(user.email);
+    expect(res.body.user).not.toHaveProperty("password");
+  });
+
+  it("should return 401 if no token is provided", async () => {
+    const res = await request(app).get("/api/v1/users/me");
+    expect(res.status).toBe(401);
+  });
+
+  it("Should return 401 if token is wrong", async () => {
+    const res = await request(app)
+      .get("/api/v1/users/me")
+      .set("Authorization", "Bearer invalid_string");
+
+    expect(res.status).toBe(401);
+  });
+
+  describe("Role Based Authorization", () => {
+    it("should allow admin to get all users", async () => {
+      const { token } = await createAuthanticatedUser(Role.ADMIN);
 
       const res = await request(app)
-        .get("/api/v1/users/me")
+        .get("/api/v1/users")
         .set("Authorization", `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.user.id).toBe(user.id);
-      expect(res.body.user.email).toBe(user.email);
-      expect(res.body.user).not.toHaveProperty("password");
+      expect(Array.isArray(res.body.users)).toBe(true);
     });
 
-    it("should return 401 if no token is provided", async () => {
-      const res = await request(app).get("/api/v1/users/me");
-      expect(res.status).toBe(401);
-    });
+    it("should deny USER from getting all users", async () => {
+      const { token } = await createAuthanticatedUser(Role.USER);
 
-    it("Should return 401 if token is wrong", async () => {
       const res = await request(app)
-        .get("/api/v1/users/me")
-        .set("Authorization", "Bearer invalid_string");
+        .get("/api/v1/users")
+        .set("Authorization", `Bearer ${token}`);
 
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(403);
     });
   });
 });

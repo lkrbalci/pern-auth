@@ -1,7 +1,17 @@
 import request from "supertest";
 import { prisma } from "../db";
 import app from "../app";
-import * as EmailService from "../services/email.service";
+
+jest.mock("../services/email.service", () => ({
+  sendVerificationEmail: jest.fn().mockResolvedValue(true),
+  sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
+  sendEmail: jest.fn().mockResolvedValue(true),
+}));
+
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from "../services/email.service";
 
 const createdEmails: string[] = [];
 
@@ -14,14 +24,6 @@ const generateUser = () => {
     name: "Test User",
   };
 };
-
-const sendVerificatonSpy = jest
-  .spyOn(EmailService, "sendVerificationEmail")
-  .mockResolvedValue();
-
-const sendPasswordResetSpy = jest
-  .spyOn(EmailService, "sendPasswordResetEmail")
-  .mockResolvedValue();
 
 afterAll(async () => {
   // Clean up created users
@@ -77,13 +79,18 @@ describe("Auth flow without verification", () => {
 
     const cookie = loginRes.headers["set-cookie"];
 
+    const oldAccessToken = loginRes.body.accessToken;
+
+    // wait for more than just 1 second to ensure new token is different
+    await new Promise((r) => setTimeout(r, 1010));
+
     const res = await request(app)
       .post("/api/v1/auth/refresh")
       .set("Cookie", cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeDefined();
-    expect(res.body.accessToken).not.toBe(accessToken);
+    expect(res.body.accessToken).not.toBe(oldAccessToken);
   });
 });
 
@@ -100,9 +107,9 @@ describe("Auth flow with verification", () => {
     expect(res.body.accessToken).toBeUndefined();
     expect(res.body.requireVerification).toBe(true);
 
-    expect(sendVerificatonSpy).toHaveBeenCalled();
+    expect(sendVerificationEmail).toHaveBeenCalled();
     // Get the last call
-    const calls = sendVerificatonSpy.mock.calls;
+    const calls = (sendVerificationEmail as jest.Mock).mock.calls;
     const lastCall = calls[calls.length - 1];
     // The token is the second argument
     verificationToken = lastCall[1];
@@ -120,8 +127,8 @@ describe("Auth flow with verification", () => {
 
   it("should verify email with token", async () => {
     const res = await request(app)
-      .post("/api/v1/auth/verify-email")
-      .send({ token: verificationToken });
+      .get("/api/v1/auth/verify-email")
+      .query({ token: verificationToken });
 
     expect(res.status).toBe(200);
     expect(res.body.message).toMatch(/success/i);
@@ -140,9 +147,47 @@ describe("Auth flow with verification", () => {
 
 describe("Password reset flow", () => {
   let userC = generateUser();
+  let resetToken: string;
 
   beforeAll(async () => {
     await request(app).post("/api/v1/auth/register").send(userC);
+  });
+
+  it("should send reset link", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/forgot-password")
+      .send({ email: userC.email });
+
+    expect(res.status).toBe(200);
+
+    expect(sendPasswordResetEmail).toHaveBeenCalled();
+    const calls = (sendPasswordResetEmail as jest.Mock).mock.calls;
+    const lastCall = calls[calls.length - 1];
+    resetToken = lastCall[1];
+  });
+
+  it("should reset password with token", async () => {
+    const newPassword = "newPassword123!";
+    const res = await request(app)
+      .post("/api/v1/auth/reset-password")
+      .send({ token: resetToken, newPassword });
+
+    expect(res.status).toBe(200);
+
+    // Fail login with old password
+    const failRes = await request(app).post("/api/v1/auth/login").send({
+      email: userC.email,
+      password: userC.password,
+    });
+    expect(failRes.status).toBe(401);
+
+    // Login with new password
+    const loginRes = await request(app).post("/api/v1/auth/login").send({
+      email: userC.email,
+      password: newPassword,
+    });
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.accessToken).toBeDefined();
   });
 });
 

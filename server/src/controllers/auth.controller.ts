@@ -1,9 +1,11 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import {
+  forgotUserPassword,
   loginUser,
   logoutUser,
   refreshSession,
   registerUser,
+  resetUserPassword,
   verifyUserEmail,
 } from "../services/auth.service";
 import { getRequestMeta } from "../utils/request";
@@ -30,7 +32,8 @@ export const register = catchAsync(
       password,
       name,
       userAgent,
-      ipAddress
+      ipAddress,
+      false
     );
 
     const cleanUser = UserResponseSchema.parse(user);
@@ -149,5 +152,31 @@ export const verifyEmail = catchAsync(
     await verifyUserEmail(token);
 
     return res.status(200).json({ message: "Email verified successfully" });
+  }
+);
+
+export const forgotPassword = catchAsync(
+  async (
+    req: Request,
+    res: Response,
+    Next: NextFunction
+  ): Promise<Response> => {
+    const { email } = req.validated!.body;
+
+    await forgotUserPassword(email);
+
+    return res.status(200).json({ message: "Reset link has been sent." });
+  }
+);
+
+export const resetPassword = catchAsync(
+  async (req: Request, res: Response): Promise<Response> => {
+    const { token, newPassword } = req.validated!.body;
+
+    await resetUserPassword(token, newPassword);
+
+    return res.status(200).json({
+      message: "Password reset successful.",
+    });
   }
 );
