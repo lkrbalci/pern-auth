@@ -23,16 +23,16 @@ import { authRateLimiter } from "../middlewares/rateLimit.middleware";
 const router = Router();
 
 /**
- * @openapi
- * tags:
- *   name: Auth
- *   description: Authentication management (register, login, logout, refresh)
+ *  @openapi
+ *  tags:
+ *  name: Auth
+ *  description: Authentication management (register, login, logout, refresh)
  */
 
 /**
- * @openapi
- * /auth/register:
- *   post:
+ *  @openapi
+ *  /auth/register:
+ *    post:
  *     tags: [Auth]
  *     summary: Register a new user
  *     description: Register a new user with email and password !!Comment out if email verification path is used!!
@@ -68,7 +68,7 @@ router.post("/register", authRateLimiter, validate(RegisterSchema), register);
  *   post:
  *     tags: [Auth]
  *     summary: Register a new user with email verification
- *     description: Register a new user with email and password also expect for email verification
+ *     description: Register a new user with email and password. Does not log the user in.
  *     requestBody:
  *       required: true
  *       content:
@@ -87,13 +87,12 @@ router.post("/register", authRateLimiter, validate(RegisterSchema), register);
  *                default: password123!
  *     responses:
  *       201:
- *         description: User registered successfully
+ *         description: User registered, verification email sent
  *       400:
  *         description: Bad Request
  *       409:
  *         description: User with this email already exists
  */
-
 router.post(
   "/register-with-verification",
   validate(RegisterSchema),
@@ -130,8 +129,9 @@ router.post(
  *         description: Bad Request
  *       401:
  *         description: Invalid credentials
+ *      403:
+ *         description: Email not verified
  */
-
 router.post("/login", authRateLimiter, validate(LoginSchema), login);
 
 /**
@@ -189,10 +189,10 @@ router.get("/verify-email", validate(VerifyEmailSchema), verifyEmail);
 
 /**
  * @openapi
- * /auth/login:
+ * /auth/forgot-password:
  *   post:
  *     tags: [Auth]
- *     summary: Forgot Password
+ *     summary: Send Password Reset Link
  *     description: Sends email containing password reset link and token to provided user email address
  *     requestBody:
  *      required: true
@@ -218,7 +218,7 @@ router.post("/forgot-password", validate(ForgotPasswordSchema), forgotPassword);
 
 /**
  * @openapi
- * /auth/register:
+ * /auth/reset-password:
  *   post:
  *     tags: [Auth]
  *     summary: Reset password
@@ -231,16 +231,16 @@ router.post("/forgot-password", validate(ForgotPasswordSchema), forgotPassword);
  *            type: object
  *            required:
  *             - token
- *             - password
+ *             - newPassword
  *            properties:
  *              token:
  *                type: string
  *                required: true
- *              password:
+ *              newPassword:
  *                type: string
  *                default: password123!
  *     responses:
- *       201:
+ *       200:
  *         description: User registered successfully
  *       400:
  *         description: Token invalid or expired

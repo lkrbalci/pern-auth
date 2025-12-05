@@ -25,19 +25,19 @@ const router = Router();
  *       200:
  *         description: Successfully retrieved user profile
  *         content:
- *         application/json:
- *            schema:
- *              type: object
- *            properties:
- *               user:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                   email:
- *                     type: string
- *                   name:
- *                     type: string
+ *          application/json:
+ *              schema:
+ *                  type: object
+ *                  properties:
+ *                      user:
+ *                          type: object
+ *                          properties:
+ *                              id:
+ *                                  type: string
+ *                              email:
+ *                                  type: string
+ *                              name:
+ *                                  type: string
  *       401:
  *         description: Unauthorized - Invalid or missing token
  */
@@ -47,7 +47,7 @@ router.get("/me", authenticate, getMe);
  * @openapi
  * /users:
  *   get:
- *     tags: [Users]
+ *     tags: [User]
  *     summary: Get all users (Admin only)
  *     security:
  *       - bearerAuth: []
@@ -55,7 +55,7 @@ router.get("/me", authenticate, getMe);
  *       200:
  *         description: List of users
  *       403:
- *         description: Forbidden (Not an admin)
+ *         description: Forbidden
  */
 router.get("/", authenticate, authorize([Role.ADMIN]), getAllUsers);
 
