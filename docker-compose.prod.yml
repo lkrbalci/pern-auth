@@ -38,5 +38,16 @@ services:
     
     entrypoint: ["/app/docker-entrypoint.sh"]
 
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      -"80:80"
+    restart: always
+    depends_on:
+      - server
+
 volumes:
   postgres_data_prod:

@@ -41,5 +41,22 @@ services:
     entrypoint: ["/app/docker-entrypoint.sh"]
     command: ["npm", "run", "dev"]
 
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "3000:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:5000/api/v1
+    depends_on:
+      - server
+    stdin_open: true
+    tty: true
+
 volumes:
   postgres_data:
