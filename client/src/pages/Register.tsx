@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-
+import { NavLink } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -21,7 +21,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { NavLink } from "react-router";
+
+import { useRegister } from "@/hooks/useAuth";
 
 const formSchema = z.object({
   email: z.email(),
@@ -29,6 +30,8 @@ const formSchema = z.object({
 });
 
 const Register = () => {
+  const { mutate: register, isPending } = useRegister();
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -38,8 +41,13 @@ const Register = () => {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
+    register(values);
   }
+
+  if (isPending) {
+    return <div>Registering</div>;
+  }
+
   return (
     <section className="flex h-screen items-center justify-center">
       <Card className="w-full max-w-md">
