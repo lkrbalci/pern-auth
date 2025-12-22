@@ -52,9 +52,7 @@ export const useRegister = () => {
         queryClient.setQueryData(["auth", "user"], data.user);
         navigate("/me");
       } else {
-        //
-        //
-        //
+        navigate("/verify-email-sent");
       }
     },
   });
