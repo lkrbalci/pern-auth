@@ -26,10 +26,10 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/me" element={<Me />} />
           </Route>
+
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-
-      <Route path="*" element={<NotFound />} />
     </main>
   );
 }

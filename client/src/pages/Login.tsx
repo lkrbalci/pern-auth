@@ -22,7 +22,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-import { useLogin } from "@/hooks/useAuth";
+import { useLogin, useResendVerification } from "@/hooks/useAuth";
+import { AxiosError } from "axios";
 
 const formSchema = z.object({
   email: z.email(),
@@ -30,7 +31,13 @@ const formSchema = z.object({
 });
 
 const Login = () => {
-  const { mutate: login, isPending } = useLogin();
+  const { mutate: login, isPending, error: loginError } = useLogin();
+  const { mutate: resendVerification } = useResendVerification();
+
+  const isUnverifiedError =
+    loginError instanceof AxiosError &&
+    loginError.response?.status === 403 &&
+    loginError.response.data?.message === "Please verify your email address";
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -99,6 +106,32 @@ const Login = () => {
                   </FormItem>
                 )}
               />
+
+              {isUnverifiedError ? (
+                <div className="border border-yellow-300 bg-yellow-50 p-3 rounded text-yellow-800 text-sm">
+                  <p>Your account is not yet verified.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resendVerification({ email: form.getValues("email") });
+                    }}
+                    className="mt-2 font-semibold underline"
+                  >
+                    Resend Verification Email
+                  </button>
+                </div>
+              ) : (
+                !!loginError &&
+                !isUnverifiedError && (
+                  <div className="text-sm font-medium text-destructive">
+                    {loginError instanceof AxiosError
+                      ? loginError.response?.data?.message ||
+                        "Login failed. Please try again."
+                      : "An unexpected error occurred."}
+                  </div>
+                )
+              )}
+
               <Button type="submit">Submit</Button>
             </form>
           </Form>

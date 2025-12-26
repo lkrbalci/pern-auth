@@ -51,5 +51,11 @@ export const ResetPasswordSchema = z.object({
   }),
 });
 
+export const ResendVerificationSchema = z.object({
+  body: z.object({
+    email: z.email({ error: "Invalid email address" }),
+  }),
+});
+
 export type RegisterInput = z.infer<typeof RegisterSchema>["body"];
 export type LoginInput = z.infer<typeof LoginSchema>["body"];

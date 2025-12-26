@@ -5,6 +5,7 @@ import {
   logoutUser,
   refreshSession,
   registerUser,
+  resendVerificationEmail,
   resetUserPassword,
   verifyUserEmail,
 } from "../services/auth.service";
@@ -178,5 +179,21 @@ export const resetPassword = catchAsync(
     return res.status(200).json({
       message: "Password reset successful.",
     });
+  }
+);
+
+export const resendVerification = catchAsync(
+  async (
+    req: Request,
+    res: Response,
+    Next: NextFunction
+  ): Promise<Response> => {
+    const { email } = req.validated!.body;
+
+    await resendVerificationEmail(email);
+
+    return res
+      .status(200)
+      .json({ message: "Verification Email has been sent." });
   }
 );

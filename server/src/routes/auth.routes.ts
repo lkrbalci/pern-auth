@@ -6,6 +6,7 @@ import {
   refresh,
   register,
   registerWithVerification,
+  resendVerification,
   resetPassword,
   verifyEmail,
 } from "../controllers/auth.controller";
@@ -15,6 +16,7 @@ import {
   LoginSchema,
   RefreshSchema,
   RegisterSchema,
+  ResendVerificationSchema,
   ResetPasswordSchema,
   VerifyEmailSchema,
 } from "../schemas/auth.schema";
@@ -246,5 +248,11 @@ router.post("/forgot-password", validate(ForgotPasswordSchema), forgotPassword);
  *         description: Token invalid or expired
  */
 router.post("/reset-password", validate(ResetPasswordSchema), resetPassword);
+
+router.post(
+  "/resend-verification",
+  validate(ResendVerificationSchema),
+  resendVerification
+);
 
 export default router;

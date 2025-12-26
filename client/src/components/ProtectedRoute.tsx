@@ -1,8 +1,8 @@
-import { useAuth } from "@/hooks/useAuth";
+import { useUser } from "@/hooks/useAuth";
 import { Navigate, Outlet } from "react-router";
 
 export const ProtectedRoute = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isSuccess: isAuthenticated, isLoading } = useUser();
 
   if (isLoading) {
     return (

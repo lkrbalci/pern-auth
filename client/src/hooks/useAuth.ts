@@ -7,6 +7,7 @@ import {
   loginFn,
   logoutFn,
   registerFn,
+  resendVerificationFn,
   resetPasswordFn,
   verifyEmailFn,
 } from "@/services/auth";
@@ -98,6 +99,17 @@ export const useResetPassword = () => {
     retryDelay: backoffDelay,
     onSuccess: () => {
       navigate("/login");
+    },
+  });
+};
+
+export const useResendVerification = () => {
+  return useMutation({
+    mutationFn: resendVerificationFn,
+    retry: smartRetry,
+    retryDelay: backoffDelay,
+    onSuccess: () => {
+      // Add some toast etc.
     },
   });
 };

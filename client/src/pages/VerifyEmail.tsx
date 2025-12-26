@@ -1,7 +1,13 @@
 import { useEffect } from "react";
 import { useVerifyEmail } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useNavigate, useSearchParams } from "react-router";
 
 const VerifyEmail = () => {
@@ -26,10 +32,13 @@ const VerifyEmail = () => {
   }, [token, verifyEmail]);
 
   return (
-    <div className="flex h-screen items-center justify-center bg-slate-50">
-      <Card className="w-full max-w-md text-center">
+    <section className="flex h-screen items-center justify-center">
+      <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Email Verification</CardTitle>
+          <CardTitle>EMail Verification</CardTitle>
+          <CardDescription>
+            Follow the link to verify your email
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
           {!token && (
@@ -55,7 +64,7 @@ const VerifyEmail = () => {
           )}
         </CardContent>
       </Card>
-    </div>
+    </section>
   );
 };
 

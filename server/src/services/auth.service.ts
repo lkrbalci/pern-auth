@@ -340,3 +340,23 @@ export const resetUserPassword = async (token: string, newPassword: string) => {
     data: { revoked: true },
   });
 };
+
+export const resendVerificationEmail = async (email: string) => {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || user.isMailVerified) {
+    return;
+  }
+
+  const rawToken = generateRandomToken();
+  const hashedToken = hashToken(rawToken);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      verificationToken: hashedToken,
+      verificationTokenExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // New 24h window
+    },
+  });
+
+  await sendVerificationEmail(user.email, rawToken);
+};
